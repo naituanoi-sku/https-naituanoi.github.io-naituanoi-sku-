@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="naituanoi SKU">
 <meta name="theme-color" content="#030712">
-<title>naituanoi - Auto SKU v1212</title>
+<title>naituanoi - Auto SKU v1214</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23030712'/%3E%3Ccircle cx='50' cy='50' r='30' fill='%23f59e0b'/%3E%3Ctext x='50' y='65' font-size='40' font-weight='bold' text-anchor='middle' fill='%23030712'%3EN%3C/text%3E%3C/svg%3E">
 <style>
 html,body{overflow-x:hidden;max-width:100%;}
@@ -142,14 +142,14 @@ input,textarea,select{font-size:16px !important;}
 <div id="updbar" onclick="hardReload()">🔄 มีเวอร์ชั่นใหม่พร้อมแล้ว — แตะที่นี่เพื่ออัปเดต</div>
 <div id="loading"><div class="spin"></div><div id="lmsg">กำลังโหลด...</div></div>
 <div id="root"></div>
-<div class="verbadge">v1212</div>
+<div class="verbadge">v1214</div>
 <script>
 function hardReload(){
   try{if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}}catch(e){}
   location.replace(location.pathname+"?v="+Date.now());
 }
 (function(){
-  var RUNNING="v1212";
+  var RUNNING="v1214";
   var last=0;
   function check(){
     var now=Date.now();
@@ -515,15 +515,47 @@ function zipStore(files){
 }
 const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 const colName=i=>{let s="",n=i+1;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;};
-function sheetXml(rows){
-  const out=['<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'];
+// สไตล์: 0=ปกติ 1=หัวหมวด(เหลือง) 2=หัวตาราง(เทา) 3=หัวรุ่น(ฟ้าอ่อน) 4=หัวเรื่อง(ตัวหนา)
+const STYLES_XML='<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
++'<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
++'<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
++'<fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/><bgColor indexed="64"/></patternFill></fill>'
++'<fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill>'
++'<fill><patternFill patternType="solid"><fgColor rgb="FFDDEBF7"/><bgColor indexed="64"/></patternFill></fill></fills>'
++'<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>'
++'<border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border>'
++'<border><left style="medium"><color rgb="FF808080"/></left><right style="medium"><color rgb="FF808080"/></right><top style="medium"><color rgb="FF808080"/></top><bottom style="medium"><color rgb="FF808080"/></bottom><diagonal/></border></borders>'
++'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
++'<cellXfs count="6">'
++'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>'
++'<xf numFmtId="0" fontId="1" fillId="2" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'
++'<xf numFmtId="0" fontId="1" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'
++'<xf numFmtId="0" fontId="1" fillId="4" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'
++'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
++'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
++'</cellXfs></styleSheet>';
+function sheetXml(rows,opt){
+  const o=opt||{};
+  const cols=(o.widths||[]).map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("");
+  const freeze=o.freeze?`<sheetViews><sheetView workbookViewId="0"><pane ySplit="${o.freeze}" topLeftCell="A${o.freeze+1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`:"";
+  const out=['<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +freeze+(cols?`<cols>${cols}</cols>`:"")+'<sheetData>'];
   rows.forEach((row,r)=>{
     out.push(`<row r="${r+1}">`);
-    row.forEach((v,c)=>{
+    // แถวที่ขึ้นต้นด้วย __st:N คือกำหนดสไตล์ให้ทั้งแถว
+    let st=row.length?0:5,cells=row;   // แถวว่าง = ไม่มีเส้น ใช้เป็นตัวคั่นกลุ่ม
+    if(row.length&&typeof row[0]==="string"&&row[0].startsWith("__st:")){
+      st=Number(row[0].slice(5))||0;cells=row.slice(1);
+    }
+    const sAttr=st?` s="${st}"`:"";
+    cells.forEach((v,c)=>{
       const ref=colName(c)+(r+1);
-      if(v===null||v===undefined||v==="")return;
-      if(typeof v==="number"&&Number.isFinite(v))out.push(`<c r="${ref}"><v>${v}</v></c>`);
-      else out.push(`<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`);
+      if(v===null||v===undefined||v===""){
+        if(st)out.push(`<c r="${ref}"${sAttr}/>`);   // เซลล์ว่างก็ต้องมีสี ไม่งั้นแถบสีขาด
+        return;
+      }
+      if(typeof v==="number"&&Number.isFinite(v))out.push(`<c r="${ref}"${sAttr}><v>${v}</v></c>`);
+      else out.push(`<c r="${ref}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`);
     });
     out.push("</row>");
   });
@@ -539,15 +571,17 @@ function buildXlsx(sheets){
   const used=new Set();
   const list=sheets.map(s=>({name:safeSheet(s.name,used),rows:s.rows||[]}));
   const files=[
-    {name:"[Content_Types].xml",data:'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+    {name:"[Content_Types].xml",data:'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+
       list.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")+'</Types>'},
     {name:"_rels/.rels",data:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
     {name:"xl/workbook.xml",data:'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+
       list.map((s,i)=>`<sheet name="${esc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")+'</sheets></workbook>'},
     {name:"xl/_rels/workbook.xml.rels",data:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
-      list.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")+'</Relationships>'},
+      list.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")+
+      `<Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`+'</Relationships>'},
+    {name:"xl/styles.xml",data:STYLES_XML},
   ];
-  list.forEach((s,i)=>files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s.rows)}));
+  list.forEach((s,i)=>files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s.rows,{widths:s.widths,freeze:s.freeze})}));
   return zipStore(files);
 }
 
@@ -555,10 +589,10 @@ function buildXlsx(sheets){
 // ── 📗 จัดข้อมูลเป็นชีต — 1 ชีต = 1 ยี่ห้อ + ชีตสรุปหน้าแรก ────────
 function buildSheets(rows){
   const all=(rows||[]).map(x=>({x,r:histToRow(x)}));
-    // ซ้ายมือ = ตัวแปรที่ใช้เทียบราคา · ขวามือ = ข้อมูลอ้างอิง จะได้ไม่ต้องเลื่อน
-    // "ราคาที่จะขายออก" = ราคาที่ตั้งขาย (ยังไม่รู้ราคาที่ขายได้จริง — อยู่ใน POS)
+  // ซ้ายมือ = ตัวแปรที่ใช้เทียบราคา · ขวามือ = ข้อมูลอ้างอิง จะได้ไม่ต้องเลื่อน
+  // "ราคาที่จะขายออก" = ราคาที่ตั้งขาย (ยังไม่รู้ราคาที่ขายได้จริง — อยู่ใน POS)
   const HEAD=["เดือน","วันรับเข้า","ชื่อสินค้า","SN","สภาพ","ชัตเตอร์","ประกัน",
-    "แก้ว/อาการ","ทุน","ราคาที่จะขายออก","ส่วนต่าง","วันที่โพส","คนคิดราคา"];
+    "แก้ว/อาการ","ทุน","ราคาที่จะขายออก","กำไรที่ได้","วันที่โพส","คนคิดราคา"];
   // กลุ่มเทียบ = รุ่น + เกรด → กรองคอลัมน์เดียวได้ของที่เทียบกันได้จริง
   const cmpKey=({x,r})=>{
     const g=((x&&x.cond)||[]).map(c=>String(c[1]||"")).join(" ");
@@ -581,7 +615,8 @@ function buildSheets(rows){
       r[9]||"",r[10]||"",r[11]||"",glassSym(x),
       ct,pr,(pr!==""&&ct!=="")?pr-ct:"",r[7]||"",r[16]||""];
   };
-const byBrand=new Map(),byMonth=new Map();
+  // ── ชีตสรุป
+  const byBrand=new Map(),byMonth=new Map();
   for(const o of all){
     const b=o.r[0]||"(ไม่ระบุยี่ห้อ)";
     if(!byBrand.has(b))byBrand.set(b,[]);
@@ -589,18 +624,25 @@ const byBrand=new Map(),byMonth=new Map();
     const m=o.r[8]||"ไม่รู้เดือน";
     byMonth.set(m,(byMonth.get(m)||0)+1);
   }
-  const sum=[["สรุปภาพรวม"],[],["ทั้งหมด",all.length+" ตัว"],[],["ยี่ห้อ","จำนวน","กล้อง","เลนส์","เซ็ต","Acc"]];
+  const months=[...byMonth.keys()].sort();
+  const mLabel=m=>{const [yy,mm]=String(m).split("-");return mm&&yy?`${mm}/${yy}`:m;};
+  const sum=[["__st:4","สรุปภาพรวม"],[],["__st:4","ทั้งหมด",all.length+" ตัว"],[]];
+  // แยกยี่ห้อตามเดือน — รวมทุกเดือนเป็นก้อนเดียวแล้วดูไม่ออกว่าเดือนไหนรับมากี่ตัว
+  sum.push(["__st:2","ยี่ห้อ",...months.map(mLabel),"รวม"]);
   for(const [b,g] of [...byBrand.entries()].sort((a,b)=>b[1].length-a[1].length)){
-    const c=t=>g.filter(o=>o.r[1]===t).length;
-    sum.push([b,g.length,c("กล้อง"),c("เลนส์"),c("เซ็ต"),c("Acc")]);
+    sum.push([b,...months.map(m=>g.filter(o=>(o.r[8]||"ไม่รู้เดือน")===m).length||""),g.length]);
   }
-  sum.push([],["เดือน","จำนวน"]);
-  for(const m of [...byMonth.keys()].sort()){
-    const [yy,mm]=String(m).split("-");
-    sum.push([mm&&yy?`${mm}/${yy}`:m,byMonth.get(m)]);
+  sum.push([],["__st:2","เดือน","จำนวน","กล้อง","เลนส์","เซ็ต","Acc"]);
+  for(const m of months){
+    const g=all.filter(o=>(o.r[8]||"ไม่รู้เดือน")===m);
+    const c=t=>g.filter(o=>o.r[1]===t).length||"";
+    sum.push([mLabel(m),g.length,c("กล้อง"),c("เลนส์"),c("เซ็ต"),c("Acc")]);
   }
   sum.push([],["หมายเหตุ : ระบบวางของที่เทียบกันได้ไว้ข้างกันเท่านั้น — การตัดสินราคาขึ้นกับคนดู"]);
-  const sheets=[{name:"สรุป",rows:sum}];const inCompare=new Set;
+  // ความกว้างคอลัมน์ — ชื่อสินค้ากว้าง ตัวเลขแคบ จะได้ไม่ต้องลากเอง
+  const W=[9,11,30,15,20,10,20,26,10,14,11,11,12];
+  const sheets=[{name:"สรุป",rows:sum,widths:[14,11,11,11,11,11,11,11]}];
+  const inCompare=new Set();
   // ── ชีตเทียบข้ามเดือน — เอาเฉพาะรุ่น+เกรดที่มีตั้งแต่ 2 เดือนขึ้นไป
   //    ตัวที่มีเดือนเดียวเทียบไม่ได้ ไม่ต้องใส่ให้รก
   {
@@ -612,13 +654,13 @@ const byBrand=new Map(),byMonth=new Map();
     }
     // เรียง: กลุ่ม → เวลา → เงิน → สภาพของ → ใครตั้งราคา → อ้างอิง
     const CH=HEAD;
-    const out=[["เทียบข้ามเดือน — เฉพาะรุ่นและเกรดเดียวกันที่มีตั้งแต่ 2 เดือนขึ้นไป"],
-      ["ระบบวางของที่เทียบกันได้ไว้ข้างกันเท่านั้น — การตัดสินราคาขึ้นกับคนดู"],[],CH];
+    const out=[["__st:4","เทียบข้ามเดือน — เฉพาะรุ่นและเกรดเดียวกันที่มีตั้งแต่ 2 เดือนขึ้นไป"],
+      ["ระบบวางของที่เทียบกันได้ไว้ข้างกันเท่านั้น — การตัดสินราคาขึ้นกับคนดู"],[],["__st:2",...CH]];
     const multi=[...byCmp.entries()]
       .filter(([,g])=>new Set(g.map(o=>o.r[8]).filter(Boolean)).size>=2)
       .sort((a,b)=>b[1].length-a[1].length||String(a[0]).localeCompare(String(b[0]),"th"));
     for(const [k,g] of multi){
-      out.push([`▼ ${k} — ${g.length} ตัว`]);
+      out.push(["__st:3",`▼ ${k} — ${g.length} ตัว`]);
       g.sort((a,b)=>String(a.r[8]).localeCompare(String(b.r[8]))||(priceOf(a.x)||0)-(priceOf(b.x)||0));
       for(const o of g){
         const {x,r}=o;
@@ -628,15 +670,16 @@ const byBrand=new Map(),byMonth=new Map();
       out.push([]);
     }
     for(const [,g] of multi)for(const o of g)inCompare.add(o);
-    if(multi.length)sheets.push({name:"เทียบข้ามเดือน",rows:out});
+    if(multi.length)sheets.push({name:"เทียบข้ามเดือน",rows:out,widths:W,freeze:4});
   }
-// ── ชีตรายยี่ห้อ
+  // ── ชีตรายยี่ห้อ
   for(const [b,g] of [...byBrand.entries()].sort((a,b)=>b[1].length-a[1].length)){
     const out=[];
     for(const kind of ["กล้อง","เลนส์","เซ็ต","Acc"]){
+      // ตัวที่อยู่ในชีตเทียบแล้ว ไม่ต้องซ้ำอีก — กันงงเวลาไล่ดู
       const items=g.filter(o=>o.r[1]===kind&&!inCompare.has(o));
       if(!items.length)continue;
-      out.push([`${kind} — ${items.length} ตัว`],HEAD);
+      out.push(["__st:1",`${kind} — ${items.length} ตัว`],["__st:2",...HEAD]);
       // รวมรุ่นเดียวกัน → ในรุ่นเรียงสภาพสวยสุดลงมา → แล้วตามเดือน
       const byModel=new Map();
       for(const o of items){
@@ -646,7 +689,8 @@ const byBrand=new Map(),byMonth=new Map();
       }
       for(const [name,gg] of [...byModel.entries()].sort((a,b)=>b[1].length-a[1].length||String(a[0]).localeCompare(String(b[0]),"th"))){
         const months=new Set(gg.map(o=>o.r[8]).filter(Boolean)).size;
-        out.push([`▼ ${name} — ${gg.length} ตัว${months>1?` · ${months} เดือน`:""}`]);
+        const ms=[...new Set(gg.map(o=>o.r[8]).filter(Boolean))].sort().map(mLabel).join(" · ");
+        out.push(["__st:3",`▼ ${name} — ${gg.length} ตัว${ms?`   (${ms})`:""}`]);
         gg.sort((a,b)=>gradeRank(a.x)-gradeRank(b.x)
           ||String(a.r[8]).localeCompare(String(b.r[8]))
           ||(priceOf(b.x)||0)-(priceOf(a.x)||0));
@@ -655,7 +699,7 @@ const byBrand=new Map(),byMonth=new Map();
       }
       out.push([]);
     }
-    sheets.push({name:b,rows:out});
+    sheets.push({name:b,rows:out,widths:W});
   }
   return sheets;
 }
