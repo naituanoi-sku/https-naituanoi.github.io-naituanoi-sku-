@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="naituanoi SKU">
 <meta name="theme-color" content="#030712">
-<title>naituanoi - Auto SKU v1220</title>
+<title>naituanoi - Auto SKU v1221</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23030712'/%3E%3Ccircle cx='50' cy='50' r='30' fill='%23f59e0b'/%3E%3Ctext x='50' y='65' font-size='40' font-weight='bold' text-anchor='middle' fill='%23030712'%3EN%3C/text%3E%3C/svg%3E">
 <style>
 html,body{overflow-x:hidden;max-width:100%;}
@@ -142,14 +142,14 @@ input,textarea,select{font-size:16px !important;}
 <div id="updbar" onclick="hardReload()">🔄 มีเวอร์ชั่นใหม่พร้อมแล้ว — แตะที่นี่เพื่ออัปเดต</div>
 <div id="loading"><div class="spin"></div><div id="lmsg">กำลังโหลด...</div></div>
 <div id="root"></div>
-<div class="verbadge">v1220</div>
+<div class="verbadge">v1221</div>
 <script>
 function hardReload(){
   try{if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}}catch(e){}
   location.replace(location.pathname+"?v="+Date.now());
 }
 (function(){
-  var RUNNING="v1220";
+  var RUNNING="v1221";
   var last=0;
   function check(){
     var now=Date.now();
@@ -646,7 +646,7 @@ function buildSheets(rows,onlyWithCost){
   }
   const months=[...byMonth.keys()].sort();
   const mLabel=m=>{const [yy,mm]=String(m).split("-");return mm&&yy?`${mm}/${yy}`:m;};
-  const sum=[["__st:4","สรุปภาพรวม"],[],["__st:4","ทั้งหมด",all.length+" ตัว"],[]];
+  const sum=[["__st:4",`📅 สรุปแคปชั่นเดือน ${months.map(mLabel).join(" · ")||"—"}`],[]];
   // แยกยี่ห้อตามเดือน — รวมทุกเดือนเป็นก้อนเดียวแล้วดูไม่ออกว่าเดือนไหนรับมากี่ตัว
   sum.push(["__st:2","ยี่ห้อ",...months.map(mLabel),"รวม"]);
   for(const [b,g] of [...byBrand.entries()].sort((a,b)=>b[1].length-a[1].length)){
@@ -658,10 +658,10 @@ function buildSheets(rows,onlyWithCost){
     const c=t=>g.filter(o=>o.r[1]===t).length||"";
     sum.push([mLabel(m),g.length,c("กล้อง"),c("เลนส์"),c("เซ็ต"),c("Acc")]);
   }
-  if(skipped>0)sum.push([],
-    [`ℹ️ ไม่รวม ${skipped} ตัว เพราะยังไม่ได้กรอกทุนในแอปสัญญา — ไม่ใช่ข้อมูลหาย`],
-    ["   พอกรอกทุนแล้วจะเข้าไฟล์รอบถัดไปเอง"]);
-  sum.push([],["หมายเหตุ : ระบบวางของที่เทียบกันได้ไว้ข้างกันเท่านั้น — การตัดสินราคาขึ้นกับคนดู"]);
+  // หมายเหตุสั้นๆ ในตาราง — เขียนยาวแล้วตัดบรรทัดจนอ่านไม่ออก
+  if(skipped>0)sum.push([],["__st:2","สถานะ","จำนวน"],
+    ["อยู่ในไฟล์นี้",all.length],
+    ["ยังไม่กรอกทุน",skipped]);
   // ความกว้างคอลัมน์ — ชื่อสินค้ากว้าง ตัวเลขแคบ จะได้ไม่ต้องลากเอง
   // ความกว้าง: ชีตยี่ห้อ 12 คอลัมน์ · ชีตเทียบมีเดือนนำหน้าอีก 1
   const W=[30,15,20,12,20,26,10,14,11,13,12];
