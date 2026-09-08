@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="naituanoi SKU">
 <meta name="theme-color" content="#030712">
-<title>naituanoi - Auto SKU v1221</title>
+<title>naituanoi - Auto SKU v1223</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23030712'/%3E%3Ccircle cx='50' cy='50' r='30' fill='%23f59e0b'/%3E%3Ctext x='50' y='65' font-size='40' font-weight='bold' text-anchor='middle' fill='%23030712'%3EN%3C/text%3E%3C/svg%3E">
 <style>
 html,body{overflow-x:hidden;max-width:100%;}
@@ -142,14 +142,14 @@ input,textarea,select{font-size:16px !important;}
 <div id="updbar" onclick="hardReload()">🔄 มีเวอร์ชั่นใหม่พร้อมแล้ว — แตะที่นี่เพื่ออัปเดต</div>
 <div id="loading"><div class="spin"></div><div id="lmsg">กำลังโหลด...</div></div>
 <div id="root"></div>
-<div class="verbadge">v1221</div>
+<div class="verbadge">v1223</div>
 <script>
 function hardReload(){
   try{if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}}catch(e){}
   location.replace(location.pathname+"?v="+Date.now());
 }
 (function(){
-  var RUNNING="v1221";
+  var RUNNING="v1223";
   var last=0;
   function check(){
     var now=Date.now();
@@ -517,6 +517,7 @@ const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").rep
 const colName=i=>{let s="",n=i+1;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;};
 // สไตล์: 0=ปกติ 1=หัวหมวด(เหลือง) 2=หัวตาราง(เทา) 3=หัวรุ่น(ฟ้าอ่อน) 4=หัวเรื่อง(ตัวหนา)
 const STYLES_XML='<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
++'<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0"/></numFmts>'
 +'<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font>'
 +'<font><b/><sz val="11"/><name val="Calibri"/></font>'
 +'<font><b/><sz val="16"/><color rgb="FF1F3864"/><name val="Calibri"/></font>'
@@ -530,7 +531,7 @@ const STYLES_XML='<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http:
 +'<border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border>'
 +'<border><left style="medium"><color rgb="FF808080"/></left><right style="medium"><color rgb="FF808080"/></right><top style="medium"><color rgb="FF808080"/></top><bottom style="medium"><color rgb="FF808080"/></bottom><diagonal/></border></borders>'
 +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-+'<cellXfs count="7">'
++'<cellXfs count="8">'
 +'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'
 +'<xf numFmtId="0" fontId="3" fillId="2" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>'
 +'<xf numFmtId="0" fontId="1" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
@@ -538,6 +539,7 @@ const STYLES_XML='<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http:
 +'<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
 +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
 +'<xf numFmtId="0" fontId="1" fillId="5" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'
++'<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>'
 +'</cellXfs></styleSheet>';
 function sheetXml(rows,opt){
   const o=opt||{};
@@ -559,7 +561,10 @@ function sheetXml(rows,opt){
         if(st)out.push(`<c r="${ref}"${sAttr}/>`);   // เซลล์ว่างก็ต้องมีสี ไม่งั้นแถบสีขาด
         return;
       }
-      if(typeof v==="number"&&Number.isFinite(v))out.push(`<c r="${ref}"${sAttr}><v>${v}</v></c>`);
+      if(typeof v==="number"&&Number.isFinite(v)){
+        // ตัวเลขในแถวข้อมูล → ใส่คอมมาให้อ่านง่าย แต่ยังเป็นตัวเลขจริง คำนวณได้
+        out.push(`<c r="${ref}"${st?sAttr:' s="7"'}><v>${v}</v></c>`);
+      }
       else out.push(`<c r="${ref}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`);
     });
     out.push("</row>");
@@ -606,8 +611,9 @@ function buildSheets(rows,onlyWithCost){
   // คอลัมน์ "เดือน" ตัดออก — ซ้ำกับหัวเรื่องบนสุดและหัวรุ่น
   //    ยกเว้นชีตเทียบข้ามเดือนที่แต่ละแถวคนละเดือน ต้องมี
   // วันรับเข้าย้ายไปไว้ที่หัวรุ่น — รายตัวซ้ำกันหมด
-  const BASE=["ชื่อสินค้า","SN","สภาพ","ชัตเตอร์","ประกัน",
-    "แก้ว/อาการ","ทุน","ราคาที่จะขายออก","กำไรที่ได้","วันที่คิดแคปชั่น","คนคิดราคา"];
+  // วันรับเข้าต้องอยู่รายตัว — ของรุ่นเดียวกันรับเข้าคนละวัน หัวรุ่นบอกไม่ได้ว่าตัวไหนวันไหน
+  const BASE=["ชื่อสินค้า","SN","วันรับเข้า","สภาพ","ชัตเตอร์","ประกัน",
+    "แก้ว/อาการ","ทุน","ราคาที่จะขายออก","กำไรที่ได้","วันที่คิด","คนคิด"];
   const HEAD=BASE;
   const HEAD_CMP=["เดือน",...BASE];
   // กลุ่มเทียบ = รุ่น + เกรด → กรองคอลัมน์เดียวได้ของที่เทียบกันได้จริง
@@ -618,8 +624,16 @@ function buildSheets(rows,onlyWithCost){
   };
   const symOf=x=>String((x&&x.f&&x.f.funcSymptom)||"").split("\n").filter(Boolean).join(" · ");
   // รวมแก้วกับอาการเป็นช่องเดียว — 2 ช่องแยกกันแล้วส่วนใหญ่ว่าง ทำให้ตารางโล่งเปล่า
+  // ตัดคำโฆษณาท้ายประโยคออก — ในไฟล์ต้องการแค่ "อาการคืออะไร" ไม่ต้องการคำขาย
+  //    "มีรอยขนแมวครับ แต่ไม่มีผลต่อภาพ ท่านใดไม่ซีเรียสตัวนี้ราคาดีเลยครับผม" → ตัดตั้งแต่ "ท่านใด"
+  const trimSell=t=>{
+    let v=String(t||"").trim().replace(/^\(\s*|\s*\)$/g,"");
+    const cut=[/ท่านใด/,/คุ้มมาก/,/ราคาดี/,/เน้นใช้/,/ได้ไปคุ้ม/];
+    for(const re of cut){const m=v.search(re);if(m>0)v=v.slice(0,m);}
+    return v.replace(/[\s·-]+$/,"").trim();
+  };
   const glassSym=x=>{
-    const g=pulledGlassLabel(x),sy=symOf(x);
+    const g=trimSell(pulledGlassLabel(x)),sy=trimSell(symOf(x));
     if(g&&g!=="แก้วสวย"&&sy)return g+" · "+sy;
     return sy||(g==="แก้วสวย"?"":g)||"";
   };
@@ -631,8 +645,9 @@ function buildSheets(rows,onlyWithCost){
     // ฝากขาย/เทรด ต้องเห็น เพราะเงื่อนไขจ่ายต่างจากซื้อขาด — ต่อท้ายชื่อ ไม่เพิ่มคอลัมน์
     const deal=String(r[2]||"");
     const nameTag=(r[3]||"")+(deal&&deal!=="รับซื้อ"?`  [${deal}]`:"");
-    return[nameTag,r[4]||"",
-      r[9]||"",(x&&x.shutterFull)||r[10]||"",r[11]||"",glassSym(x),
+    return[nameTag,r[4]||"",r[6]||"",
+      String(r[9]||"").replace(/^สภาพ\s*/,"").replace(/\s*·\s*/g," · "),
+      (x&&x.shutterFull)||r[10]||"",r[11]||"",glassSym(x),
       ct,pr,(pr!==""&&ct!=="")?pr-ct:"",r[7]||"",r[16]||""];
   };
   // ── ชีตสรุป
@@ -664,7 +679,8 @@ function buildSheets(rows,onlyWithCost){
     ["ยังไม่กรอกทุน",skipped]);
   // ความกว้างคอลัมน์ — ชื่อสินค้ากว้าง ตัวเลขแคบ จะได้ไม่ต้องลากเอง
   // ความกว้าง: ชีตยี่ห้อ 12 คอลัมน์ · ชีตเทียบมีเดือนนำหน้าอีก 1
-  const W=[30,15,20,12,20,26,10,14,11,13,12];
+  // แก้ว/อาการ กว้างขึ้นมาก + สภาพกว้างขึ้น เพราะเป็นข้อความยาว
+  const W=[26,13,11,34,10,17,42,10,13,11,11,9];
   const W_CMP=[9,...W];
   const sheets=[{name:"สรุป",rows:sum,widths:[14,11,11,11,11,11,11,11]}];
   const inCompare=new Set();
@@ -718,9 +734,7 @@ function buildSheets(rows,onlyWithCost){
       }
       for(const [name,gg] of [...byModel.entries()].sort((a,b)=>b[1].length-a[1].length||String(a[0]).localeCompare(String(b[0]),"th"))){
         const months=new Set(gg.map(o=>o.r[8]).filter(Boolean)).size;
-        const ds=[...new Set(gg.map(o=>o.r[6]).filter(Boolean))];
-        const dTxt=ds.length===1?`  รับเข้า ${ds[0]}`:(ds.length?`  รับเข้า ${ds.length} วัน`:"");
-        out.push(["__st:3",`▼ ${name} — ${gg.length} ตัว${dTxt}`]);
+        out.push(["__st:3",`▼ ${name} — ${gg.length} ตัว`]);
         gg.sort((a,b)=>gradeRank(a.x)-gradeRank(b.x)
           ||String(a.r[8]).localeCompare(String(b.r[8]))
           ||(priceOf(b.x)||0)-(priceOf(a.x)||0));
