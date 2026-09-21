@@ -142,14 +142,14 @@ input,textarea,select{font-size:16px !important;}
 <div id="updbar" onclick="hardReload()">🔄 มีเวอร์ชั่นใหม่พร้อมแล้ว — แตะที่นี่เพื่ออัปเดต</div>
 <div id="loading"><div class="spin"></div><div id="lmsg">กำลังโหลด...</div></div>
 <div id="root"></div>
-<div class="verbadge">v1283</div>
+<div class="verbadge">v1284</div>
 <script>
 function hardReload(){
   try{if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}}catch(e){}
   location.replace(location.pathname+"?v="+Date.now());
 }
 (function(){
-  var RUNNING="v1283";
+  var RUNNING="v1284";
   var last=0;
   function check(){
     var now=Date.now();
@@ -569,7 +569,11 @@ function sheetXml(rows,opt){
     });
     out.push("</row>");
   });
-  out.push("</sheetData></worksheet>");
+  // 🔽 ตัวกรองหัวตาราง — ใช้กับชีตตารางเรียบ (หัวแถวเดียวที่แถว 1) เท่านั้น
+  if(o.filter&&rows.length>1){
+    const n=Math.max(...rows.map(r=>(r.length&&typeof r[0]==="string"&&r[0].startsWith("__st:"))?r.length-1:r.length));
+    out.push("</sheetData>"+`<autoFilter ref="A1:${colName(n-1)}${rows.length}"/>`+"</worksheet>");
+  }else out.push("</sheetData></worksheet>");
   return out.join("");
 }
 const safeSheet=(n,used)=>{
@@ -579,7 +583,8 @@ const safeSheet=(n,used)=>{
 };
 function buildXlsx(sheets){
   const used=new Set();
-  const list=sheets.map(s=>({name:safeSheet(s.name,used),rows:s.rows||[]}));
+  // 🐛 v1284 — เดิมส่งต่อแค่ name/rows → ความกว้างคอลัมน์ + ตรึงหัวตาราง ถูกทิ้งกลางทาง ไม่เคยไปถึงไฟล์จริง
+  const list=sheets.map(s=>({name:safeSheet(s.name,used),rows:s.rows||[],widths:s.widths,freeze:s.freeze,filter:s.filter}));
   const files=[
     {name:"[Content_Types].xml",data:'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+
       list.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")+'</Types>'},
@@ -591,7 +596,7 @@ function buildXlsx(sheets){
       `<Relationship Id="rIdS" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`+'</Relationships>'},
     {name:"xl/styles.xml",data:STYLES_XML},
   ];
-  list.forEach((s,i)=>files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s.rows,{widths:s.widths,freeze:s.freeze})}));
+  list.forEach((s,i)=>files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s.rows,{widths:s.widths,freeze:s.freeze,filter:s.filter})}));
   return zipStore(files);
 }
 
@@ -708,6 +713,23 @@ function buildSheets(rows){
   const W=[15,11,40,12,20,52,11,15,12,11,10,22];
   const W_CMP=[9,...W];
   const sheets=[{name:"สรุป",rows:sum,widths:[14,11,11,11,11,11,11,11]}];
+  // ── 🔽 ชีต "ทั้งหมด" — ตารางเรียบ 1 แถว = 1 ตัว ไว้กดกรอง/เรียงใน Excel (v1284)
+  //    ชีตยี่ห้อมีแถวหัวกลุ่ม/แถวว่างแทรก ใส่ตัวกรองแล้วเพี้ยน เลยแยกเป็นชีตนี้ · ชีตเดิมไม่แตะ
+  {
+    const flat=[["__st:2","เดือน","ยี่ห้อ","ชนิด","ชื่อสินค้า","ประเภทงาน",...HEAD]];
+    const kindRank={"กล้อง":0,"เลนส์":1,"เซ็ต":2,"Acc":3};
+    const kr=k=>kindRank[k]!==undefined?kindRank[k]:9;
+    const sorted=[...all].sort((a,b)=>
+      String(a.r[0]).localeCompare(String(b.r[0]),"th")
+      ||kr(a.r[1])-kr(b.r[1])
+      ||String(a.r[3]).localeCompare(String(b.r[3]),"th")
+      ||gradeRank(a.x)-gradeRank(b.x));
+    for(const o of sorted){
+      const ro=rowOf(o);ro[0]=o.r[4]||"";   // SN ล้วน — ประเภทงานแยกคอลัมน์ให้แล้ว กรองได้
+      flat.push([o.r[8]?mLabel(o.r[8]):"",o.r[0]||"",o.r[1]||"",o.r[3]||"",o.r[2]||"",...ro]);
+    }
+    sheets.push({name:"ทั้งหมด",rows:flat,widths:[9,12,8,34,10,...W],freeze:1,filter:true});
+  }
   const inCompare=new Set();
   // ── ชีตเทียบข้ามเดือน — เอาเฉพาะรุ่น+เกรดที่มีตั้งแต่ 2 เดือนขึ้นไป
   //    ตัวที่มีเดือนเดียวเทียบไม่ได้ ไม่ต้องใส่ให้รก
