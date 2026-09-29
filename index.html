@@ -185,14 +185,14 @@ button.nafield{display:flex;flex-direction:column;justify-content:center}
 <div id="updbar" onclick="hardReload()">🔄 มีเวอร์ชั่นใหม่พร้อมแล้ว — แตะที่นี่เพื่ออัปเดต</div>
 <div id="loading"><div class="spin"></div><div id="lmsg">กำลังโหลด...</div></div>
 <div id="root"></div>
-<div class="verbadge">v1324</div>
+<div class="verbadge">v1325</div>
 <script>
 function hardReload(){
   try{if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}}catch(e){}
   location.replace(location.pathname+"?v="+Date.now());
 }
 (function(){
-  var RUNNING="v1324";
+  var RUNNING="v1325";
   var last=0;
   function check(){
     var now=Date.now();
@@ -734,7 +734,9 @@ function buildSheets(rows){
   const all=src.map(x=>({x,r:histToRow(x)}));
   // 🔧 v1301 ขายตามสภาพ (ซ่อมไม่ได้) — ทีมสัญญาส่ง sellAsIs มาเฉพาะตัวส่งซ่อม · ช่วงที่ไม่มีสักตัว = ไม่เพิ่มคอลัมน์ ไม่รก
   const asIsOf=x=>{const fl=x&&x.__flag;const v=fl?flagNum(fl.sellAsIs):null;return (Number.isFinite(v)&&v>0)?v:null;};
-  const hasAsIs=all.some(o=>asIsOf(o.x)!==null);
+  // 🔧 v1325 ราคาเดียว (กล่อง #16 · เจ้าของเคาะ 29/9) — ไม่แยกคอลัมน์ขายตามสภาพแล้ว
+  //    มี priceUse → ตามนั้น ("asis"=ตามสภาพ · "normal"=ปกติ) · ไม่มี + sellAsIs มีเลข → ตามสภาพ · ไม่มีทั้งคู่ → ปกติ
+  const useAsIsOf=x=>{const fl=x&&x.__flag;if(!fl||asIsOf(x)===null)return false;return fl.priceUse!=="normal";};
   // ซ้ายมือ = ตัวแปรที่ใช้เทียบราคา · ขวามือ = ข้อมูลอ้างอิง จะได้ไม่ต้องเลื่อน
   // "ราคาที่จะขายออก" = ราคาที่ตั้งขาย (ยังไม่รู้ราคาที่ขายได้จริง — อยู่ใน POS)
   // คอลัมน์ "เดือน" ตัดออก — ซ้ำกับหัวเรื่องบนสุดและหัวรุ่น
@@ -744,7 +746,7 @@ function buildSheets(rows){
   // ชัตเตอร์/CCD รวมช่องเดียว — กล้องฟิล์มไม่มีชัตเตอร์นับ · M8/M9 มี CCD ด้วย
   // ชื่อสินค้าตัดออก — ซ้ำกับหัวรุ่นทุกแถว 100% · SN เก็บไว้เสมอ (ใช้ย้อนดูตัวจริง)
   const BASE=["SN","วันรับเข้า","สภาพ","ชัตเตอร์/CCD","ประกัน",
-    "แก้ว/อาการ","ทุน","ราคาที่จะขายออก",...(hasAsIs?["ขายตามสภาพ (ซ่อมไม่ได้)"]:[]),"กำไรที่ได้","วันที่คิด","คนคิด","ต้องทบทวนราคา"];
+    "แก้ว/อาการ","ทุน","ราคาที่จะขายออก","กำไรที่ได้","วันที่คิด","คนคิด","ต้องทบทวนราคา"];
   // ย่อประกันให้สั้นแต่ไม่กำกวม — คำเต็มยาวจนบีบช่องอื่น
   const warShort=t=>String(t||"")
     .replace(/^หมดประกันศูนย์\s*\(\s*ทางร้านรับประกัน 15 วัน\s*\)$/,"หมดศูนย์ · ร้าน 15 วัน")
@@ -800,11 +802,13 @@ function buildSheets(rows){
     // ฝากขาย/เทรด ต้องเห็น เพราะเงื่อนไขจ่ายต่างจากซื้อขาด — ต่อท้ายชื่อ ไม่เพิ่มคอลัมน์
     // ฝากขาย/เทรด ต้องเห็น — ตัดคอลัมน์ชื่อออกแล้ว ย้ายป้ายมาต่อท้าย SN
     const deal=String(r[2]||"");
-    const snTag=(r[4]||"")+(deal&&deal!=="รับซื้อ"?`  [${deal}]`:"");
+    const asIs=useAsIsOf(x);                 // v1325 ใช้ราคาตามสภาพ → ติดป้ายต่อท้าย SN แบบเดียวกับ [เทรด]
+    const prOut=asIs?asIsOf(x):pr;
+    const snTag=(r[4]||"")+(deal&&deal!=="รับซื้อ"?`  [${deal}]`:"")+(asIs?"  [ตามสภาพ]":"");
     return[snTag,r[6]||"",
       String(r[9]||"").replace(/^สภาพ\s*/,"").replace(/\s*·\s*/g," · "),
       shutCcd(x,r),warShort(r[11]),glassSym(x),
-      ct===""?"รอกรอก":ct,pr,...(hasAsIs?[asIsOf(x)!==null?asIsOf(x):""]:[]),("number"==typeof pr&&ct!=="")?pr-ct:"",r[7]||"",
+      ct===""?"รอกรอก":ct,prOut,("number"==typeof prOut&&ct!=="")?prOut-ct:"",r[7]||"",
       roughReal!==null?`${capBy} → ${fl.by||"แอปสัญญา"} (แอปสัญญา)`:(useFlag&&flSell!==capPr)?`${r[16]||"—"} → ${fl.by||"ตรวจแล้ว"}`:(r[16]||""),(fl&&!0===fl.recheckPrice&&!(null!=fl.costWas&&null!=fl.cost&&flagNum(fl.costWas)===flagNum(fl.cost)))?`⚠️ ทุนเปลี่ยน${null!=fl.costWas?` (เดิม ${flagNumTxt(fl.costWas)})`:""}`:""];
   };
   // ── ชีตสรุป
@@ -838,7 +842,7 @@ function buildSheets(rows){
   // ความกว้าง: ชีตยี่ห้อ 12 คอลัมน์ · ชีตเทียบมีเดือนนำหน้าอีก 1
   // แก้ว/อาการ กว้างขึ้นมาก + สภาพกว้างขึ้น เพราะเป็นข้อความยาว
   // ตัดชื่อสินค้าออกแล้ว เอาที่ว่างไปขยายสภาพกับแก้ว/อาการ
-  const W=[15,11,40,12,20,52,11,15,...(hasAsIs?[14]:[]),12,11,10,22];
+  const W=[15,11,40,12,20,52,11,15,12,11,10,22];
   const W_CMP=[9,...W];
   const sheets=[{name:"สรุป",rows:sum,widths:[14,11,11,11,11,11,11,11]}];
   // ── 🔽 ชีต "ทั้งหมด" — ตารางเรียบ 1 แถว = 1 ตัว ไว้กดกรอง/เรียงใน Excel (v1284)
@@ -854,7 +858,8 @@ function buildSheets(rows){
       ||gradeRank(a.x)-gradeRank(b.x));
     for(const o of sorted){
       const ro=rowOf(o);ro[0]=o.r[4]||"";   // SN ล้วน — ประเภทงานแยกคอลัมน์ให้แล้ว กรองได้
-      flat.push([o.r[8]?mLabel(o.r[8]):"",o.r[0]||"",o.r[1]||"",o.r[3]||"",o.r[2]||"",...ro]);
+      // v1325 ชีตนี้ SN ต้องล้วน (ไว้กรอง) → ป้ายตามสภาพไปต่อในคอลัมน์ประเภทงานแทน
+      flat.push([o.r[8]?mLabel(o.r[8]):"",o.r[0]||"",o.r[1]||"",o.r[3]||"",(o.r[2]||"")+(useAsIsOf(o.x)?((o.r[2]?" · ":"")+"ตามสภาพ"):""),...ro]);
     }
     sheets.push({name:"ทั้งหมด",rows:flat,widths:[9,12,8,34,10,...W],freeze:1,filter:true});
   }
