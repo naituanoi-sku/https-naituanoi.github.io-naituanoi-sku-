@@ -185,14 +185,14 @@ button.nafield{display:flex;flex-direction:column;justify-content:center}
 <div id="updbar" onclick="hardReload()">🔄 มีเวอร์ชั่นใหม่พร้อมแล้ว — แตะที่นี่เพื่ออัปเดต</div>
 <div id="loading"><div class="spin"></div><div id="lmsg">กำลังโหลด...</div></div>
 <div id="root"></div>
-<div class="verbadge">v1343</div>
+<div class="verbadge">v1344</div>
 <script>
 function hardReload(){
   try{if(window.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}}catch(e){}
   location.replace(location.pathname+"?v="+Date.now());
 }
 (function(){
-  var RUNNING="v1343";
+  var RUNNING="v1344";
   var last=0;
   function check(){
     var now=Date.now();
@@ -585,6 +585,7 @@ const DB={async get(e){try{if("undefined"!=typeof window&&window.storage?.get){c
 //    B3: error ที่เกิดในเครื่องทีม → เก็บเงียบๆ ที่ nai-err:* (สูงสุด 5 อัน/ครั้งที่เปิดแอป · ซ้ำไม่เก็บ)
 //    A1: วันละครั้งตอนจีจี้เปิดแอป ตรวจให้เอง ถ้าเจอเรื่องขึ้นแถบเตือน · กดดูละเอียดได้จาก ⚙️ → 🩺
 const HEALTH_ADMIN="จีจี้";
+const HEALTH_FROM="2026-10-01";   // v1344 เจ้าของตัดสิน 29/9: เดือน 9 = ทดสอบ · นับจริงตั้งแต่เดือน 10
 (function(){
   if(typeof window==="undefined"||window.__naiErrHook)return;window.__naiErrHook=true;
   let n=0;const seen=new Set();
@@ -610,10 +611,10 @@ async function healthRun(){
   const nz=v=>String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
   const num=v=>{const x=Number(String(v==null?"":v).replace(/[^\d.]/g,""));return Number.isFinite(x)&&x>0?x:0;};
   const [ent,flags,inbox,hist,marks,park,errs]=await Promise.all([
-    get("camera_purchases?date_key=gte."+day(45)+"&date_key=lt.3000&select=id,date_key,entry"),
+    get("camera_purchases?date_key=gte."+(day(45)>HEALTH_FROM?day(45):HEALTH_FROM)+"&date_key=lt.3000&select=id,date_key,entry"),
     get("camera_purchases?date_key=eq.__pflag__&select=id,entry"),
     get("sell_price_inbox?select=sn,sell_price,ts,by_name&limit=3000"),
-    get("nai_shared?key=like.nai-hist:*&select=key,sn:value->>sn,name:value->>name,price:value->>price,ts:value->>ts"),
+    get("nai_shared?key=like.nai-hist:*&select=key,sn:value->>sn,name:value->>name,price:value->>price,ts:value->>ts,pl:value->priceLog"),
     get("nai_shared?key=like.nai-mark:*&select=key"),
     get("nai_shared?key=like.nai-park:*&select=key,sku:value->>sku,name:value->>name,ts:value->>ts"),
     get("nai_shared?key=like.nai-err:*&select=key,value&order=key.desc&limit=50"),
@@ -633,11 +634,13 @@ async function healthRun(){
   const age=d=>Math.floor((Date.now()-new Date(d+"T00:00:00").getTime())/864e5);
   const out=[];
   // 1) Copy แล้ว แต่ราคายังไม่ถึงแอปสัญญา (30 วัน)
-  const lost=[];for(const h of hist||[]){const ts=Number(h.ts)||0;if(Date.now()-ts>30*864e5)continue;const pr=num(h.price);if(!pr)continue;
+  const lost=[];for(const h of hist||[]){const ts=Number(h.ts)||0;if(Date.now()-ts>30*864e5)continue;const pr=num(h.price);if(!pr||ts<new Date(HEALTH_FROM).getTime())continue;
+    // v1344 มาย/ฟอร์ด = ราคาคร่าว ไม่ส่งอยู่แล้ว (ตั้งใจ) · นับเฉพาะคนที่ต้องส่ง + เครื่องไม่มีชื่อ
+    const lb=(Array.isArray(h.pl)&&h.pl.length)?String(h.pl[h.pl.length-1].by||"").trim():"";if(lb&&!SELL_PUSH_USERS.includes(lb))continue;
     const sns=String(h.sn||"").split(/\s+/).map(nz).filter(s=>s.length>=4);if(!sns.length)continue;
     const ok=sns.some(s=>inboxBy[s]||(prodBy[s]&&prodBy[s].sell)||(flagBy[s]&&num(flagBy[s].sell)));
     if(!ok)lost.push({t:h.name,s:sns.join(" "),x:"ราคา "+pr.toLocaleString()});}
-  out.push({k:"lost",title:"Copy แล้ว แต่ราคายังไม่ถึงแอปสัญญา",hint:"ไปกด 💰 แก้ราคา → ✏️ แก้ราคา (ราคาเดิม) จากเครื่องที่ตั้งชื่อแล้ว",rows:lost});
+  out.push({k:"lost",title:"Copy แล้ว แต่ราคายังไม่ถึงแอปสัญญา",hint:"นับเฉพาะราคาจากจีจี้ · กิลด์ · เครื่องไม่มีชื่อ (มาย/ฟอร์ดเป็นราคาคร่าว ไม่ส่งอยู่แล้ว) — แก้: 💰 แก้ราคา → ✏️ แก้ราคา (ราคาเดิม) จากเครื่องที่ตั้งชื่อแล้ว",rows:lost});
   // 2) ราคาขายในใบสัญญา ไม่ตรงกับธงราคา
   const mis=[];for(const [sn,it] of Object.entries(prodBy)){if(!it.sell)continue;const fl=flagBy[sn];const fs=fl?num(fl.sell):0;
     if(fs!==it.sell)mis.push({t:it.name,s:it.sn,x:"ใบ "+it.sell.toLocaleString()+" · ธง "+(fs?fs.toLocaleString():"ไม่มี")});}
